@@ -1,5 +1,7 @@
 # contour
 
+[Open the live experiment](https://aditya2375.github.io/contour/)
+
 A neural network from scratch, with a decision-boundary plot and an interactive two-dimensional slice of training loss. Java is the numerical reference. A dependency-free JavaScript port runs the browser experiment.
 
 ## The experiment
