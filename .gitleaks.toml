@@ -1,0 +1,3 @@
+title = "contour secret scan"
+[extend]
+useDefault = true

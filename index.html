@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; img-src 'self' data:; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <title>contour | A neural network from first principles</title>
+    <meta
+      name="description"
+      content="Train a small neural network from scratch and inspect a two-dimensional slice through its parameter loss surface."
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#experiment">Skip to experiment</a>
+    <header>
+      <a href="./" class="wordmark">contour</a>
+      <p>A neural network from first principles</p>
+      <span class="mono">2 → 8 → 8 → 1 / 105 parameters</span>
+    </header>
+    <main id="experiment" tabindex="-1">
+      <div class="intro">
+        <div>
+          <p class="eyebrow">Interactive numerical notebook</p>
+          <h1>Watch a boundary take shape.</h1>
+          <p class="lead">
+            A small network learns two synthetic moons. Inspect its predictions,
+            then move through a two-dimensional slice of its training loss.
+          </p>
+        </div>
+        <p class="scope">
+          Every forward pass, derivative and Adam update is written out. No
+          machine-learning library, server or saved model.
+        </p>
+      </div>
+      <div class="controls">
+        <button id="run">Train 600 steps</button
+        ><button id="step">Step +20</button><button id="reset">Reset</button
+        ><label
+          >Initialization<select id="seed">
+            <option value="42">Seed 42</option>
+            <option value="7">Seed 7</option>
+            <option value="101">Seed 101</option>
+          </select></label
+        ><label
+          >Learning rate<select id="rate">
+            <option value="0.005">0.005</option>
+            <option value="0.02" selected>0.020</option>
+            <option value="0.05">0.050</option>
+          </select></label
+        ><span id="status" role="status">Ready</span>
+      </div>
+      <div class="readouts">
+        <div><span>Optimization steps</span><strong id="epoch">0</strong></div>
+        <div>
+          <span>Training BCE / 128 points</span
+          ><strong id="train-loss">...</strong>
+        </div>
+        <div>
+          <span>Test BCE / 256 points</span><strong id="test-loss">...</strong>
+        </div>
+        <div><span>Test accuracy</span><strong id="accuracy">...</strong></div>
+      </div>
+      <div class="figure-grid">
+        <section>
+          <div class="figure-top">
+            <div>
+              <p class="eyebrow">Input space</p>
+              <h2>The decision boundary</h2>
+            </div>
+            <span class="mono">x₁, x₂</span>
+          </div>
+          <canvas
+            id="boundary"
+            role="img"
+            aria-label="Prediction field with synthetic training examples; coral circles are class zero and mint squares class one"
+          ></canvas>
+          <div class="legend">
+            <span class="class0">○ class 0</span
+            ><span class="class1">□ class 1</span
+            ><span>points: training data</span>
+          </div>
+          <div class="probability-key">
+            <span>P(class 1)</span><span>0</span>
+            <div aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+            <span>1</span>
+          </div>
+          <p class="caption">
+            Background bins show P(class 1). The line is P = 0.5. Displayed
+            examples are the 128 training points; test scores use a separate,
+            fixed draw.
+          </p>
+        </section>
+        <section>
+          <div class="figure-top">
+            <div>
+              <p class="eyebrow">Parameter space</p>
+              <h2>A local loss slice</h2>
+            </div>
+            <label class="compact"
+              >Radius<select id="radius">
+                <option value="1">±1</option>
+                <option value="3" selected>±3</option>
+                <option value="6">±6</option>
+              </select></label
+            >
+          </div>
+          <canvas
+            id="landscape"
+            role="img"
+            aria-label="Training loss on a two-dimensional random-direction parameter slice centered at the displayed network"
+          ></canvas>
+          <div class="slice-key">
+            <span>lower loss</span>
+            <div class="ramp" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <span>higher loss</span><output id="slice-range"></output>
+          </div>
+          <p class="caption">
+            Center cross = current weights. α and β follow fixed orthonormal
+            random directions in all 105 parameters. This is a slice, not the
+            full landscape. Each update recenters it. Colors rescale within each
+            slice; shades are not comparable across updates.
+          </p>
+          <output id="slice-probe" class="probe"
+            >Select a location for its loss, or use the α/β controls.</output
+          >
+          <div class="probe-controls">
+            <label
+              >α<input
+                id="alpha"
+                type="range"
+                min="-3"
+                max="3"
+                value="0"
+                step="0.1" /></label
+            ><label
+              >β<input
+                id="beta"
+                type="range"
+                min="-3"
+                max="3"
+                value="0"
+                step="0.1"
+            /></label>
+          </div>
+        </section>
+      </div>
+      <section class="history">
+        <div class="figure-top">
+          <div>
+            <p class="eyebrow">Optimization record</p>
+            <h2>Training loss by step</h2>
+          </div>
+          <span class="mono">linear scale / no smoothing</span>
+        </div>
+        <canvas
+          id="history"
+          role="img"
+          aria-label="Training loss history, recorded every twenty optimization steps"
+        ></canvas
+        ><button id="download">Export loss history CSV</button>
+      </section>
+      <div class="notes">
+        <section>
+          <h2>What is computed</h2>
+          <p>
+            A fully connected 2-8-8-1 network with tanh hidden layers and one
+            output logit. Training uses stable binary cross-entropy and
+            full-batch Adam (β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸). Xavier-uniform
+            initialization; biases start at zero.
+          </p>
+          <p>
+            Java is the independent numerical reference. All 105 derivatives are
+            checked with central finite differences, and complete weights and
+            gradients are compared between Java and JavaScript at fixed training
+            steps.
+          </p>
+        </section>
+        <section>
+          <h2>What the picture cannot prove</h2>
+          <p>
+            A two-dimensional slice hides 103 directions. Its shape depends on
+            direction, scale and parameterization. A visually flat region does
+            not establish a globally flat minimum, and low training loss does
+            not guarantee performance on other data.
+          </p>
+          <p>
+            Both sets are balanced seeded synthetic moons: 128 training examples
+            (seed 17), 256 test examples (seed 91). Test data never enters an
+            optimizer update or the slice calculation. Inspecting test scores
+            while changing settings still makes this an educational
+            demonstration, not an unbiased model-selection benchmark.
+          </p>
+        </section>
+      </div>
+      <p id="error" role="alert"></p>
+    </main>
+    <footer>
+      <span>contour / numerical experiment</span
+      ><a href="https://github.com/Aditya2375/contour"
+        >Source, equations and tests</a
+      ><span>MIT OR Apache-2.0</span>
+    </footer>
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>

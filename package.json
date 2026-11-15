@@ -1,0 +1,11 @@
+{
+  "name": "contour",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build-web.mjs",
+    "test": "node tests/parity.mjs"
+  },
+  "license": "MIT OR Apache-2.0"
+}
